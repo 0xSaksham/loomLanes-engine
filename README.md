@@ -13,37 +13,70 @@
 The system is designed for massive scale, decoupling task ingestion from execution through a multi-stage priority pipeline.
 
 ```mermaid
-graph TD
-    subgraph "Ingestion Layer (REST)"
-        A[Client] -->|POST /task| B[Task Controller]
-        B --> C{Rate Limiter}
-        C -->|Lua script| D[(Redis: Token Bucket)]
+flowchart TD
+    %% Node Definitions
+    Client([💻 External Client])
+    
+    subgraph Ingestion_Layer ["1. Ingestion Layer (Spring Boot)"]
+        direction TB
+        Controller[Task Controller]
+        Limiter{Rate Limiter}
+        LuaScript[[Redis Lua Script]]
     end
 
-    subgraph "Priority Orchestration"
-        D -->|Allowed| E[Priority Engine]
-        E -->|ZADD| F[(Redis: Priority ZSet)]
-        F -->|ZPOPMIN| G[Task Poller]
+    subgraph Priority_Orchestration ["2. Priority Orchestration (Redis)"]
+        direction TB
+        P_Queue[(Redis Sorted Set)]
+        Poller[Scheduled Task Poller]
     end
 
-    subgraph "Message Backbone"
-        G -->|Publish| H[Kafka: Task_Execution]
-        H -->|Fail/Retry| I[Kafka: Task_DLQ]
+    subgraph Message_Backbone ["3. Message Backbone (Kafka)"]
+        direction TB
+        KafkaTopic[[Kafka: task-execution-topic]]
+        DLQ[[Kafka: Dead Letter Queue]]
     end
 
-    subgraph "Execution Layer"
-        J[Worker Pool]
-        subgraph "Internal Worker Strategy"
-            J -->|Spawn| K(((Virtual Thread)))
-            K -->|Idempotency| L[Redis: SETNX]
-            L -->|Execute| M[Business Logic]
-        end
+    subgraph Execution_Engine ["4. Execution Engine (Project Loom)"]
+        direction TB
+        Workers[Worker Pool]
+        VThread(((Virtual Thread)))
+        Idempotency{Idempotency Check}
+        Logic[Business Logic]
     end
 
-    subgraph "Observability"
-        N[Actuator] --> O[Prometheus]
-        O --> P[Grafana]
+    subgraph Monitoring ["Observability Stack"]
+        Actuator[Spring Actuator] --> Prom[Prometheus] --> Graf[Grafana]
     end
+
+    %% Flow Connections
+    Client ==>|POST /task| Controller
+    Controller --> Limiter
+    Limiter -.->|Atomic Check| LuaScript
+    Limiter ==>|Allowed| P_Queue
+    
+    P_Queue ==>|ZPOPMIN| Poller
+    Poller ==>|Publish| KafkaTopic
+    
+    KafkaTopic ==>|Consume| Workers
+    Workers --> VThread
+    VThread --> Idempotency
+    Idempotency -.->|SETNX| LuaScript
+    Idempotency ==>|Success| Logic
+    
+    Logic -.->|Failures| DLQ
+
+    %% Styling
+    classDef ingestion fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef priority fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef message fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef execution fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
+    classDef monitoring fill:#eceff1,stroke:#263238,stroke-width:1px,stroke-dasharray: 5 5;
+
+    class Controller,Limiter ingestion;
+    class P_Queue,Poller priority;
+    class KafkaTopic,DLQ message;
+    class Workers,VThread,Idempotency execution;
+    class Monitoring monitoring;
 ```
 
 ## 🛠 Tech Stack
