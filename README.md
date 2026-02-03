@@ -110,7 +110,8 @@ The visualization below demonstrates a **1,000-task burst** load test:
 - **Yellow Line (Success)**: Stable throughput handled by Virtual Threads.
 - **Green Line (Retries/Failures)**: The engine successfully isolating `FAIL_ME` tasks into the DLQ strategy without impacting the main ingestion lane.
 
-![LoomLanes Throughput Dashboard](docs/throughput_spike.png)
+<img width="1919" height="1040" alt="image" src="https://github.com/user-attachments/assets/69a9764e-af67-4275-bb8a-8c79a81b8017" />
+
 
 ## 🚀 Getting Started
 
