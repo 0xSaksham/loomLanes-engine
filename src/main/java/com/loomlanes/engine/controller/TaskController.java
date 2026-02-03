@@ -24,7 +24,7 @@ public class TaskController {
             @Valid @RequestBody TaskRequest request,
             @RequestHeader(value = "X-Client-Id", defaultValue = "default-client") String clientId) {
 
-        if (!rateLimiter.isAllowed(clientId, 10, 60)) {
+        if (!rateLimiter.isAllowed(clientId, 2000, 60)) { // Bumping to 2000
             log.warn("Rate limit hit for client: {}", clientId);
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Rate limit exceeded");
         }
