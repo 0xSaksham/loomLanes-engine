@@ -1,10 +1,11 @@
-# 🚀 LoomLanes-Engine: Distributed Priority Task Scheduler
+# LoomLanes-Engine: Distributed Priority Task Scheduler
 
-**LoomLanes-Engine** is a high-throughput, low-latency distributed task scheduling system designed to handle millions of jobs with absolute reliability. Built on **Java 21 (Project Loom)** and **Spring Boot 3.x**, it utilizes **Virtual Threads** to achieve massive concurrency while maintaining a clean, synchronous programming model.
+**LoomLanes-Engine** is a high-throughput, low-latency distributed task scheduling system designed to handle millions of jobs with absolute reliability. Built on **Java 21 (Project Loom)** and **Spring Boot 3.x**, it leverages **Virtual Threads** to achieve massive concurrency while maintaining a clean, synchronous programming model.
 
 [![Java Version](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/technologies/javase/21-relnote-issues.html)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![Architecture](https://img.shields.io/badge/Architecture-Distributed%20Systems-blue.svg)]()
+[![Kafka](https://img.shields.io/badge/Kafka-Distributed-blue.svg)]()
+[![Redis](https://img.shields.io/badge/Redis-Buffered-red.svg)]()
 
 ---
 
@@ -90,32 +91,40 @@ flowchart TD
 
 ## ⚡ Key Performance Features
 
--   **Zero-Blocking Execution**: Leverages Java 21 Virtual Threads to handle high-I/O tasks (Redis/Kafka calls) without thread exhaustion or OS context-switching overhead.
--   **Atomic Rate Limiting**: Distributed Token Bucket implemented via Redis Lua scripts to ensure sub-millisecond overhead.
--   **Distributed Idempotency**: Guaranteed "exactly-once" processing using Redis `SETNX` distributed locking.
--   **Smart Priority Lanes**: Redis Sorted Sets (ZSet) allow O(log N) insertion and O(1) extraction of the highest priority tasks.
--   **Resilience Backbone**: Integrated Dead Letter Queue (DLQ) strategy for automatic retries and failure isolation.
+-   **Zero-Blocking Execution**: Leverages **Java 21 Virtual Threads** to handle high-I/O tasks (Redis/Kafka calls) without thread exhaustion or OS context-switching overhead. This allows the system to scale to millions of concurrent tasks on a single node.
+-   **Atomic Rate Limiting**: Distributed Token Bucket implemented via **Redis Lua scripts** to ensure sub-millisecond overhead and prevent race conditions in a distributed environment.
+-   **Distributed Idempotency**: Guaranteed **Exactly-Once processing** using Redis `SETNX` distributed locking, preventing duplicate task execution during Kafka re-deliveries.
+-   **Smart Priority Lanes**: Uses **Redis Sorted Sets (ZSet)** to manage priority buffering (O(log N) insertion), ensuring high-priority tasks are dispatched to Kafka before low-priority ones.
+-   **Resilient Pipeline**: Integrated **Dead Letter Queue (DLQ)** with **Exponential Backoff** (2s, 4s, 8s) to handle transient failures gracefully.
 
-## 💻 Development Environment Setup
+## 💻 Hybrid Performance Architecture
 
-This project utilizes a **Hybrid Architecture** for maximum performance:
-*   **Build & Application Runtime**: Fedora (WSL) — Optimized for Linux native filesystem I/O.
-*   **Infrastructure/Containers**: Docker Desktop (Windows Host) — Managing Redis & Kafka.
-*   **IDE**: IntelliJ IDEA (Windows) — Connected via WSL-JDK bridge.
+This project utilizes a **Cross-Platform Bridge** for high-performance development:
+*   **Runtime/Build**: Fedora (WSL) — Optimized for Linux native filesystem I/O (`ext4`).
+*   **Infrastructure**: Docker Desktop (Windows) — Orchestrating Redis, Kafka, and Prometheus.
+*   **Bridge**: Custom WSL-IP bridging to allow Docker containers to scrape metrics from the application layer.
+
+## 📈 Performance & Observability
+
+The visualization below demonstrates a **1,000-task burst** load test:
+- **Yellow Line (Success)**: Stable throughput handled by Virtual Threads.
+- **Green Line (Retries/Failures)**: The engine successfully isolating `FAIL_ME` tasks into the DLQ strategy without impacting the main ingestion lane.
+
+![LoomLanes Throughput Dashboard](docs/throughput_spike.png)
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Docker Desktop (with WSL Integration enabled for Fedora)
-- Java 21 SDK (Installed in Fedora)
-- Maven 3.9+ (Installed in Fedora)
+- Docker Desktop (WSL Integration enabled for Fedora)
+- Java 21 JDK & Maven 3.9+ (Installed in WSL)
 
 ### 1. Start Infrastructure
-In your Fedora terminal:
 ```bash
 docker compose up -d
 ```
 
-### 2. Configure Environment
-Ensure your `application.properties` points to `localhost:6379` (Redis) and `localhost:9092` (Kafka). Docker Desktop handles the bridge between WSL and Windows automatically.
+### 2. Configure WSL Network Bridge
+Find your WSL IP: `ip addr show eth0`. Update `prometheus.yml` with this IP to allow the Prometheus container to scrape the application.
 
 ### 3. Build and Run
 ```bash
@@ -123,11 +132,12 @@ Ensure your `application.properties` points to `localhost:6379` (Redis) and `loc
 ./mvnw spring-boot:run
 ```
 
-## 📈 Monitoring
-Metrics are exposed via Spring Actuator in Prometheus format:
-- **Health Check**: `http://localhost:8080/actuator/health`
-- **Prometheus Metrics**: `http://localhost:8080/actuator/prometheus`
+## 📈 Monitoring Endpoints
+- **Prometheus Dashboard**: `http://localhost:9091`
+- **Grafana Metrics**: `http://localhost:3000` (User: `admin`, Pass: `admin`)
+- **Actuator JSON**: `http://localhost:8080/actuator/prometheus`
 
 ---
-**Author**: Saksham Gupta with ❤️  
-**Status**: Active Development (HFT-Architecture Protocol)
+**Author**: Saksham Gupta 
+
+**Status**: Milestone 2 Complete (Resilience & Monitoring)
